@@ -1,0 +1,93 @@
+"""
+A6_hft_analysis.py
+Analyse exploratoire des données HFT Bitcoin (Chapitre 4)
+
+Auteur : Kouassi Innocent N'GORAN
+Date   : Octobre 2025
+"""
+
+import math
+import random
+import matplotlib.pyplot as plt
+
+def main():
+    # === Simulation de données minute par minute ===
+    n_points = 2000
+    timestamps = list(range(n_points))
+
+    # Prix médian simulé (marche aléatoire)
+    midpoint = [30000.0]
+    for i in range(1, n_points):
+        midpoint.append(midpoint[-1] + random.gauss(0, 5))
+
+    # Spread aléatoire
+    spread = [abs(random.gauss(0, 2)) for _ in range(n_points)]
+
+    # === 1. Statistiques descriptives ===
+    returns = [(midpoint[i] - midpoint[i-1]) / midpoint[i-1] for i in range(1, n_points)]
+    volatilite = math.sqrt(sum((r - sum(returns)/len(returns))**2 for r in returns) / len(returns))
+
+    print(f"Période d’échantillonnage : {n_points} minutes")
+    print(f"Prix min / max : {min(midpoint):.2f} / {max(midpoint):.2f}")
+    print(f"Volatilité moyenne : {volatilite:.6f}")
+    print(f"Spread moyen : {sum(spread)/len(spread):.6f}")
+
+    # === 2. Évolution du prix médian ===
+    plt.figure(figsize=(10, 5))
+    plt.plot(timestamps, midpoint, color='navy', linewidth=1.2)
+    plt.title("Évolution simulée du prix médian du Bitcoin")
+    plt.xlabel("Temps (minutes)")
+    plt.ylabel("Prix médian (USD)")
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig("A6_price_evolution.pdf", dpi=300, bbox_inches='tight')
+    plt.show()
+
+    # === 3. Volatilité glissante (fenêtre 100 min) ===
+    window = 100
+    volat_glissante = []
+    for i in range(len(returns)):
+        start = max(0, i - window)
+        sous_ech = returns[start:i+1]
+        if len(sous_ech) > 1:
+            moyenne = sum(sous_ech) / len(sous_ech)
+            var = sum((r - moyenne)**2 for r in sous_ech) / len(sous_ech)
+            volat_glissante.append(math.sqrt(var))
+        else:
+            volat_glissante.append(0)
+
+    plt.figure(figsize=(10, 5))
+    plt.plot(range(len(volat_glissante)), volat_glissante, color='crimson', linewidth=1.2)
+    plt.title("Volatilité glissante simulée (fenêtre de 100 minutes)")
+    plt.xlabel("Temps (minutes)")
+    plt.ylabel("Volatilité")
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig("A6_volatility_sliding.pdf", dpi=300, bbox_inches='tight')
+    plt.show()
+
+    # === 4. Distribution du spread ===
+    nb_bins = 30
+    min_spread, max_spread = min(spread), max(spread)
+    largeur_bin = (max_spread - min_spread) / nb_bins
+    freq = [0] * nb_bins
+    for s in spread:
+        index = min(nb_bins - 1, int((s - min_spread) / largeur_bin))
+        freq[index] += 1
+    densite = [f / (len(spread) * largeur_bin) for f in freq]
+    bins_centres = [min_spread + (i + 0.5) * largeur_bin for i in range(nb_bins)]
+
+    plt.figure(figsize=(8, 5))
+    plt.bar(bins_centres, densite, width=largeur_bin * 0.9, color='forestgreen', alpha=0.7)
+    plt.title("Distribution empirique du spread simulé")
+    plt.xlabel("Spread (USD)")
+    plt.ylabel("Densité")
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig("A6_spread_distribution.pdf", dpi=300, bbox_inches='tight')
+    plt.show()
+
+    print("\nGraphiques générés : A6_*.pdf")
+
+if __name__ == "__main__":
+    main()
