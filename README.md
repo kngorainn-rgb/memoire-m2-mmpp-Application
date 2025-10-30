@@ -24,7 +24,9 @@ Les codes sont **exécutables**, **commentés**, et **reproduisent les résultat
 | `ipp_simulation.py` | Simulation IPP + lien avec la loi hyperexponentielle H₂ |
 | `superposition.py` | Superposition de 2 MMPP via somme de Kronecker + norme L² |
 | `covid_mmp_em.py` | Modélisation COVID-19 (mars 2020) avec EM à 3 régimes |
-
+- `A5_interarrivals_regimes.py` : Validation des temps inter-arrivées par régime (COVID-19)
+- `A6_hft_analysis.py` : Analyse exploratoire des données HFT Bitcoin
+- `A7_cyber_superposition.py` : Validation graphique de la superposition MMPP (cybersécurité)
 ---
 
 ## Installation
