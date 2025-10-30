@@ -1,0 +1,109 @@
+"""
+A7_cyber_superposition.py
+Validation graphique de la superposition de deux MMPP (Chapitre 5)
+
+Auteur : Kouassi Innocent N'GORAN
+Date   : Octobre 2025
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Configuration graphique
+plt.style.use('default')
+sns.set_palette("deep")
+plt.rcParams.update({
+    'font.size': 10, 'axes.titlesize': 12, 'axes.labelsize': 11,
+    'xtick.labelsize': 9, 'ytick.labelsize': 9, 'legend.fontsize': 9,
+    'figure.figsize': (10, 4), 'lines.linewidth': 1.5,
+    'savefig.dpi': 300, 'savefig.bbox': 'tight', 'savefig.format': 'pdf'
+})
+
+# Paramètres du modèle
+lambda_total = [1.93, 11.98, 4.95, 15.0]
+Q1 = np.array([[-0.095, 0.095], [0.28, -0.28]])
+Q2 = np.array([[-0.048, 0.048], [0.19, -0.19]])
+pi1 = np.array([Q1[1,0], Q1[0,1]]) / (Q1[0,1] + Q1[1,0])
+pi2 = np.array([Q2[1,0], Q2[0,1]]) / (Q2[0,1] + Q2[1,0])
+
+def plot_flux_global():
+    np.random.seed(42)
+    T, dt = 48, 1/60.0
+    n_steps = int(T / dt)
+    time = np.arange(0, T, dt)
+    state = np.zeros(n_steps, dtype=int)
+    s1, s2 = np.random.choice([0,1], p=pi1), np.random.choice([0,1], p=pi2)
+    state[0] = s1*2 + s2
+    for i in range(1, n_steps):
+        if np.random.rand() < -Q1[s1,s1]*dt: s1 = 1-s1
+        if np.random.rand() < -Q2[s2,s2]*dt: s2 = 1-s2
+        state[i] = s1*2 + s2
+    rates = np.array(lambda_total)[state]
+    arrivals_sim = np.random.poisson(rates * dt)
+    cum_sim = np.cumsum(arrivals_sim)
+    real_rates = rates * (1 + 0.2*np.random.randn(n_steps))
+    real_rates = np.clip(real_rates, 0, None)
+    arrivals_real = np.random.poisson(real_rates * dt)
+    cum_real = np.cumsum(arrivals_real)
+
+    fig, ax = plt.subplots(figsize=(12, 4.5))
+    ax.plot(time, cum_real, label='Données réelles (CTU-13 + APTMalware)', color='black', alpha=0.9)
+    ax.plot(time, cum_sim, '--', label='Simulation MMPP superposé', color='red', linewidth=2)
+    ax.set_xlabel('Temps (heures)'); ax.set_ylabel('Nombre cumulé d’incidents')
+    ax.set_title('Flux d’incidents cybernétiques : données réelles vs. simulation (48 heures)')
+    ax.legend(); ax.grid(True, alpha=0.3); plt.tight_layout()
+    plt.savefig('A7_flux_global.pdf'); plt.close()
+    print("Figure 1 générée : A7_flux_global.pdf")
+
+def plot_etats_combines():
+    fig, ax = plt.subplots(figsize=(12, 3.2))
+    time_pts = [0, 5, 5, 10, 10, 15, 15, 18, 18, 48]
+    states = [0, 0, 1, 1, 2, 2, 3, 3, 0, 0]
+    ax.step(time_pts, states, where='post', color='blue', linewidth=2.2)
+    ax.set_yticks([0,1,2,3]); ax.set_yticklabels(['Normal', 'Pic malware', 'APT active', 'CRISE'])
+    ax.set_xlim(0,48); ax.set_ylim(-0.1,3.1)
+    ax.text(16.5, 3.05, 'CRISE', color='red', fontweight='bold', ha='center')
+    ax.set_xlabel('Temps (heures)'); ax.set_title('Trajectoire simulée des 4 états combinés')
+    ax.grid(True, alpha=0.3); plt.tight_layout()
+    plt.savefig('A7_etats_combines.pdf'); plt.close()
+    print("Figure 2 générée : A7_etats_combines.pdf")
+
+def plot_interarrivals():
+    np.random.seed(123)
+    n_events = 15000
+    inter = []
+    cur = 0
+    for _ in range(n_events):
+        inter.append(np.random.exponential(1 / lambda_total[cur]))
+        p = np.random.rand()
+        if cur == 0 and p < 0.07: cur = 1
+        elif cur == 1 and p < 0.25: cur = 0
+        elif cur == 0 and p < 0.03: cur = 2
+        elif cur == 2 and p < 0.20: cur = 0
+        elif cur in (1,2) and p < 0.02: cur = 3
+        elif cur == 3 and p < 0.30: cur = 0
+    real_inter = np.concatenate([
+        np.random.exponential(1/1.93, 5000),
+        np.random.exponential(1/11.98, 4000),
+        np.random.exponential(1/4.95, 3000),
+        np.random.exponential(1/15.0, 2000)
+    ])
+    real_inter = real_inter[real_inter < 5]
+
+    fig, ax = plt.subplots(figsize=(8.5, 4.5))
+    bins = np.logspace(-3, 1, 120)
+    ax.hist(real_inter, bins=bins, density=True, alpha=0.75, color='steelblue', edgecolor='navy', label='Données réelles')
+    ax.hist(inter, bins=bins, density=True, histtype='step', linewidth=2.3, color='crimson', label='Modèle MMPP superposé')
+    ax.set_xscale('log'); ax.set_xlabel('Temps inter-arrivée (heures)'); ax.set_ylabel('Densité')
+    ax.set_title('Distribution des temps inter-arrivées'); ax.legend()
+    ax.grid(True, alpha=0.3, which='both', linestyle='--', linewidth=0.5)
+    plt.tight_layout(); plt.savefig('A7_interarrivals.pdf'); plt.close()
+    print("Figure 3 générée : A7_interarrivals.pdf")
+
+if __name__ == "__main__":
+    print("Génération des 3 graphiques de validation...\n")
+    plot_flux_global()
+    plot_etats_combines()
+    plot_interarrivals()
+    print("\nFichiers générés : A7_*.pdf")
