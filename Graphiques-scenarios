@@ -1,0 +1,138 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.linalg import expm
+
+# Paramètres du modèle MMPP estimés
+Q_original = np.array([[-0.763, 0.763, 0],
+                       [0.385, -0.685, 0.300],
+                       [0, 0.476, -0.476]])
+
+Lambda = np.array([215.3, 792.6, 2418.7])
+pi = np.array([0.263, 0.421, 0.316])
+
+# Calcul du taux moyen stationnaire
+taux_moyen_original = np.dot(pi, Lambda)
+print(f"Taux moyen stationnaire : {taux_moyen_original:.2f} cas/jour")
+
+# Période de simulation (21 jours)
+jours = np.arange(0, 22)
+cas_cumules_original = taux_moyen_original * jours
+
+# Scénario 1: Intervention précoce (q12 ↓ 50%)
+Q_scenario1 = Q_original.copy()
+Q_scenario1[0, 1] = 0.763 * 0.5  # Réduction de 50% de q12
+Q_scenario1[0, 0] = -np.sum(Q_scenario1[0, 1:])  # Recalcul de la diagonale
+
+# Calcul de la nouvelle distribution stationnaire
+from scipy.linalg import null_space
+def calculer_pi_stationnaire(Q):
+    # Résolution de πQ = 0
+    A = Q.T
+    # Ajout de la condition ∑π = 1
+    A = np.vstack([A, np.ones(Q.shape[0])])
+    b = np.zeros(Q.shape[0] + 1)
+    b[-1] = 1
+    pi, residuals, rank, s = np.linalg.lstsq(A, b, rcond=None)
+    return pi
+
+pi_scenario1 = calculer_pi_stationnaire(Q_scenario1)
+taux_moyen_scenario1 = np.dot(pi_scenario1, Lambda)
+cas_cumules_scenario1 = taux_moyen_scenario1 * jours
+reduction_scenario1 = (1 - taux_moyen_scenario1/taux_moyen_original) * 100
+
+# Scénario 2: Transition prolongée (q23 ↓ 50%)
+Q_scenario2 = Q_original.copy()
+Q_scenario2[1, 2] = 0.300 * 0.5  # Réduction de 50% de q23
+Q_scenario2[1, 1] = -np.sum(Q_scenario2[1, [0,2]])  # Recalcul diagonale
+
+pi_scenario2 = calculer_pi_stationnaire(Q_scenario2)
+taux_moyen_scenario2 = np.dot(pi_scenario2, Lambda)
+cas_cumules_scenario2 = taux_moyen_scenario2 * jours
+reduction_scenario2 = (1 - taux_moyen_scenario2/taux_moyen_original) * 100
+
+# Scénario 3: Suppression du pic (q23 = 0)
+Q_scenario3 = Q_original.copy()
+Q_scenario3[1, 2] = 0  # q23 = 0
+Q_scenario3[1, 1] = -np.sum(Q_scenario3[1, [0,2]])  # Recalcul diagonale
+
+pi_scenario3 = calculer_pi_stationnaire(Q_scenario3)
+taux_moyen_scenario3 = np.dot(pi_scenario3, Lambda)
+cas_cumules_scenario3 = taux_moyen_scenario3 * jours
+reduction_scenario3 = (1 - taux_moyen_scenario3/taux_moyen_original) * 100
+
+# Données réelles observées
+cas_reels_cumules = [285, 423, 613, 949, 2041, 2281, 2876, 3661, 4499, 
+                     5423, 6633, 7730, 9134, 10995, 12609, 14459, 16689, 
+                     19856, 22302, 25233]
+
+jours_reels = np.arange(len(cas_reels_cumules))
+
+# Création du graphique principal
+plt.figure(figsize=(12, 8))
+
+# Courbe des données réelles
+plt.plot(jours_reels, cas_reels_cumules, 'ko-', linewidth=2, markersize=6, 
+         label='Données réelles SPF', alpha=0.8)
+
+# Courbes des scénarios
+plt.plot(jours, cas_cumules_original, 'b-', linewidth=3, 
+         label=f'Scénario de base ({taux_moyen_original:.0f} cas/jour)')
+
+plt.plot(jours, cas_cumules_scenario1, 'g--', linewidth=2, 
+         label=f'Intervention précoce (-{reduction_scenario1:.1f}%)')
+
+plt.plot(jours, cas_cumules_scenario2, 'r--', linewidth=2, 
+         label=f'Transition prolongée (-{reduction_scenario2:.1f}%)')
+
+plt.plot(jours, cas_cumules_scenario3, 'm--', linewidth=2, 
+         label=f'Suppression du pic (-{reduction_scenario3:.1f}%)')
+
+# Personnalisation du graphique
+plt.xlabel('Jours (à partir du 4 mars 2020)', fontsize=12)
+plt.ylabel('Cas cumulés', fontsize=12)
+plt.title('Impact des Scénarios Contrefactuels sur les Cas de COVID-19\nFrance - Mars 2020', 
+          fontsize=14, fontweight='bold')
+plt.legend()
+plt.grid(True, alpha=0.3)
+plt.xlim(0, 21)
+
+# Ajout des annotations
+plt.annotate(f'Réduction totale: {reduction_scenario3:.1f}%', 
+             xy=(15, cas_cumules_scenario3[15]), 
+             xytext=(10, 5000),
+             arrowprops=dict(arrowstyle='->', color='m'),
+             fontsize=10, color='m')
+
+plt.tight_layout()
+plt.show()
+
+# Affichage des résultats numériques
+print("\n" + "="*50)
+print("RÉSULTATS DES SCÉNARIOS CONTREFACTUELS")
+print("="*50)
+print(f"Scénario de base : {taux_moyen_original:.1f} cas/jour")
+print(f"Intervention précoce : {taux_moyen_scenario1:.1f} cas/jour (réduction: {reduction_scenario1:.1f}%)")
+print(f"Transition prolongée : {taux_moyen_scenario2:.1f} cas/jour (réduction: {reduction_scenario2:.1f}%)")
+print(f"Suppression du pic : {taux_moyen_scenario3:.1f} cas/jour (réduction: {reduction_scenario3:.1f}%)")
+
+# Graphique supplémentaire : focus sur les différences
+plt.figure(figsize=(10, 6))
+differences = [
+    cas_cumules_original[21] - cas_cumules_scenario1[21],
+    cas_cumules_original[21] - cas_cumules_scenario2[21], 
+    cas_cumules_original[21] - cas_cumules_scenario3[21]
+]
+scenarios = ['Intervention\nprécoce', 'Transition\nprolongée', 'Suppression\ndu pic']
+
+bars = plt.bar(scenarios, differences, color=['green', 'red', 'magenta'], alpha=0.7)
+plt.ylabel('Cas évités sur 21 jours')
+plt.title('Nombre de Cas Évités par Scénario Contrefactuel')
+plt.grid(True, alpha=0.3)
+
+# Ajout des valeurs sur les barres
+for bar, diff in zip(bars, differences):
+    plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 100, 
+             f'{diff:.0f} cas', ha='center', va='bottom', fontweight='bold')
+
+plt.tight_layout()
+plt.show()
